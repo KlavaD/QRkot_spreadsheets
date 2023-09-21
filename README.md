@@ -83,7 +83,7 @@ TOKEN_URI=
 AUTH_PROVIDER_X509_CERT_URL=
 CLIENT_X509_CERT_URL=
 ```
-А так же своею личную электронную почту ...@gmail.com
+А так же свою личную электронную почту ...@gmail.com
 ```
 EMAIL= 
 ```

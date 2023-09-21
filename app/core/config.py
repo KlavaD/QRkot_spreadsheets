@@ -9,7 +9,7 @@ class Settings(BaseSettings):
         'Это приложение предоставит возможность '
         'создавать целевые проекты для помощи котикам.'
     )
-    database_url: str = 'sqlite+aiosqlite:///./cats_fund_google.db'
+    database_url: str = 'sqlite+aiosqlite:///QRkot_spreadsheets/cats_fund_google.db'
     secret: str = 'SECRET'
     first_superuser_email: Optional[EmailStr] = None
     first_superuser_password: Optional[str] = None
