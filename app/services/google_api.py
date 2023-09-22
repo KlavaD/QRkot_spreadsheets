@@ -102,7 +102,7 @@ async def spreadsheets_update_value(
                   f'C{max(len(column) for column in table_values)}')
     if len(table_values) > ROW_COUNT:
         raise ValueError(DATA_ERROR)
-    response = await wrapper_services.as_service_account(
+    await wrapper_services.as_service_account(
         service.spreadsheets.values.update(
             spreadsheetId=spreadsheet_id,
             range=START_CELLS + stop_cells,
