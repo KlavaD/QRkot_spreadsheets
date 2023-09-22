@@ -1,5 +1,5 @@
 from aiogoogle import Aiogoogle
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_async_session
@@ -23,7 +23,7 @@ async def get_report(
         wrapper_services: Aiogoogle = Depends(get_service)
 ):
     """Только для суперюзеров."""
-    projects = await charity_project_crud.get_projects_by_completion_rate(
+    projects = await charity_project_crud.get_closed_projects(
         session
     )
     spreadsheet_id, report_url = await spreadsheets_create(wrapper_services)
@@ -33,5 +33,5 @@ async def get_report(
                                         projects,
                                         wrapper_services)
     except ValueError as error:
-        return error
+        raise HTTPException(status_code=400, detail=str(error))
     return report_url

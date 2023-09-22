@@ -30,15 +30,16 @@ HEADER = [
     ['Топ проектов по скорости закрытия'],
     ['Названия проекта', 'Время сбора', 'Описание']
 ]
-DATA_ERROR = 'Данные не помещаются в созданную таблицу'
-START_CELLS = 'R1C1:'
+BIG_DATA_ERROR = 'Данные не помещаются в созданную таблицу: {} больше {} {}'
+CELL_RANGE = 'R1C1:R{row_end}C{col_end}'
 
 
 async def spreadsheets_create(
         wrapper_services: Aiogoogle,
-        spreadsheet_body=copy.deepcopy(SPREADSHEET_BODY),
+        spreadsheet_body=SPREADSHEET_BODY,
 ) -> list[Union[str, Any]]:
     now_date_time = datetime.now().strftime(FORMAT)
+    spreadsheet_body = copy.deepcopy(spreadsheet_body)
     spreadsheet_body['properties']['title'] = f'Отчет от {now_date_time}'
     service = await wrapper_services.discover('sheets', 'v4')
 
@@ -46,9 +47,10 @@ async def spreadsheets_create(
         service.spreadsheets.create(json=spreadsheet_body)
     )
     spreadsheet_id = response['spreadsheetId']
+    spreadsheet_url = response['spreadsheetUrl']
     return [
         spreadsheet_id,
-        'https://docs.google.com/spreadsheets/d/' + spreadsheet_id
+        spreadsheet_url
     ]
 
 
@@ -98,14 +100,23 @@ async def spreadsheets_update_value(
         'majorDimension': 'ROWS',
         'values': table_values
     }
-    stop_cells = (f'R{len(table_values)}'
-                  f'C{max(len(column) for column in table_values)}')
-    if len(table_values) > ROW_COUNT:
-        raise ValueError(DATA_ERROR)
+    row_in_table = len(table_values)
+    column_in_table = max(map(len, table_values))
+    if row_in_table > ROW_COUNT:
+        raise ValueError(
+            BIG_DATA_ERROR.format(row_in_table, ROW_COUNT, 'строк')
+        )
+    if column_in_table > COLUMN_COUNT:
+        raise ValueError(
+            BIG_DATA_ERROR.format(column_in_table, COLUMN_COUNT, 'столбцов')
+        )
     await wrapper_services.as_service_account(
         service.spreadsheets.values.update(
             spreadsheetId=spreadsheet_id,
-            range=START_CELLS + stop_cells,
+            range=CELL_RANGE.format(
+                row_end=row_in_table,
+                col_end=column_in_table
+            ),
             valueInputOption='USER_ENTERED',
             json=update_body
         )

@@ -23,7 +23,5 @@ def invest(
             if obj.invested_amount == obj.full_amount:
                 obj.fully_invested = 1
                 obj.close_date = datetime.now()
-                if obj.create_date is None:
-                    obj.create_date = obj.close_date
         modified_sources.append(source)
     return modified_sources
