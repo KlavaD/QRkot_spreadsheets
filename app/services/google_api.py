@@ -1,4 +1,7 @@
+import copy
 from datetime import datetime
+from operator import itemgetter
+from typing import List, Union, Any
 
 from aiogoogle import Aiogoogle
 
@@ -7,35 +10,46 @@ from app.core.config import settings
 FORMAT = "%Y/%m/%d %H:%M:%S"
 ROW_COUNT = 100
 COLUMN_COUNT = 11
+SPREADSHEET_BODY = dict(
+    properties=dict(
+        title='',
+        locale='ru_RU'
+    ),
+    sheets=[dict(properties=dict(
+        sheetType='GRID',
+        sheetId=0,
+        title='Лист1',
+        gridProperties=dict(
+            rowCount=ROW_COUNT,
+            columnCount=COLUMN_COUNT
+        )
+    ))]
+)
+HEADER = [
+    ['Отчет от', ''],
+    ['Топ проектов по скорости закрытия'],
+    ['Названия проекта', 'Время сбора', 'Описание']
+]
+DATA_ERROR = 'Данные не помещаются в созданную таблицу'
+START_CELLS = 'R1C1:'
 
 
-async def spreadsheets_create(wrapper_services: Aiogoogle) -> str:
+async def spreadsheets_create(
+        wrapper_services: Aiogoogle,
+        spreadsheet_body=copy.deepcopy(SPREADSHEET_BODY),
+) -> list[Union[str, Any]]:
     now_date_time = datetime.now().strftime(FORMAT)
+    spreadsheet_body['properties']['title'] = f'Отчет от {now_date_time}'
     service = await wrapper_services.discover('sheets', 'v4')
-    spreadsheet_body = {
-        'properties': {
-            'title': f'Отчет от {now_date_time}',
-            'locale': 'ru_RU'
-        },
-        'sheets': [
-            {
-                'properties': {
-                    'sheetType': 'GRID',
-                    'sheetId': 0,
-                    'title': 'Лист1',
-                    'gridProperties': {
-                        'rowCount': ROW_COUNT,
-                        'columnCount': COLUMN_COUNT
-                    }
-                }
-            }
-        ]
-    }
+
     response = await wrapper_services.as_service_account(
         service.spreadsheets.create(json=spreadsheet_body)
     )
-    spreadsheetid = response['spreadsheetId']
-    return spreadsheetid
+    spreadsheet_id = response['spreadsheetId']
+    return [
+        spreadsheet_id,
+        'https://docs.google.com/spreadsheets/d/' + spreadsheet_id
+    ]
 
 
 async def set_user_permissions(
@@ -58,36 +72,41 @@ async def set_user_permissions(
 
 
 async def spreadsheets_update_value(
-        spreadsheetid: str,
+        spreadsheet_id: str,
         projects: list,
         wrapper_services: Aiogoogle
 ) -> None:
     now_date_time = datetime.now().strftime(FORMAT)
     service = await wrapper_services.discover('sheets', 'v4')
+    header = copy.deepcopy(HEADER)
+    header[0][1] = now_date_time
+    projects = sorted(
+        (
+            (
+                obj['name'],
+                obj['close_date'] - obj['create_date'],
+                obj['description']
+            ) for obj in projects
+        ),
+        key=itemgetter(1)
+    )
     table_values = [
-        ['Отчет от', now_date_time],
-        ['Топ проектов по скорости закрытия'],
-        ['Названия проекта', 'Время сбора', 'Описание']
+        *header,
+        *[list(map(str, project)) for project in projects],
     ]
-    for project in projects:
-        new_row = [
-            str(project['name']),
-            str(project['close_date'] - project['create_date']),
-            str(project['description'])
-        ]
-        table_values.append(new_row)
-
     update_body = {
         'majorDimension': 'ROWS',
         'values': table_values
     }
+    stop_cells = (f'R{len(table_values)}'
+                  f'C{max(len(column) for column in table_values)}')
+    if len(table_values) > ROW_COUNT:
+        raise ValueError(DATA_ERROR)
     response = await wrapper_services.as_service_account(
         service.spreadsheets.values.update(
-            spreadsheetId=spreadsheetid,
-            range='A1:E30',
+            spreadsheetId=spreadsheet_id,
+            range=START_CELLS + stop_cells,
             valueInputOption='USER_ENTERED',
             json=update_body
         )
     )
-    spreadsheet_id = response['spreadsheetId']
-    print('https://docs.google.com/spreadsheets/d/' + spreadsheet_id)
