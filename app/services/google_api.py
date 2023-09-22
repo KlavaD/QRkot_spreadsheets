@@ -1,7 +1,7 @@
 import copy
 from datetime import datetime
 from operator import itemgetter
-from typing import List, Union, Any
+from typing import Union, Any
 
 from aiogoogle import Aiogoogle
 
